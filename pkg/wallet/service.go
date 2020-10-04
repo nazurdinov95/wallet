@@ -1,6 +1,17 @@
 package wallet
 
-import "github.com/nazurdinov95/wallet/pkg/types"
+import (
+	"github.com/nazurdinov95/wallet/pkg/types"
+	"github.com/google/uuid"
+	"errors"
+)
+
+var (
+	ErrPhoneRegistered = errors.New("phone already registered")
+	ErrAmountMustBePositive = errors.New("amount must be greater than 0")
+	ErrAccountNotFound = errors.New("account not found")
+	ErrNotEnoughBalance = errors.New("not enough balance")
+)
 
 type Service struct {
 	nextAccountID int64
@@ -8,23 +19,26 @@ type Service struct {
 	payments []*types.Payment
 }
 
-func (s *Service) RegisterAccount(phone types.Phone)  {
+func (s *Service) RegisterAccount(phone types.Phone) (*types.Account, error) {
 	for _, account := range s.accounts {
 		if account.Phone == phone{
-			return
+			return nil, ErrPhoneRegistered
 		}
 	}
 	s.nextAccountID++
-	s.accounts = append(s.accounts, &types.Account{
-		ID: s.nextAccountID,
-		Phone: phone,
-		Balance: 0,
-	})
+	account := &types.Account{
+		ID: 		s.nextAccountID,
+		Phone:		phone,
+		Balance: 	0,
+	}
+	s.accounts = append(s.accounts, account)
+	
+	return account, nil
 }
 
-func (s *Service) Deposit(accountID int64, amount types.Money)  {
+func (s *Service) Deposit(accountID int64, amount types.Money) error {
 	if amount <= 0 {
-		return
+		return ErrAmountMustBePositive
 	}
 	var account *types.Account
 
@@ -35,7 +49,53 @@ func (s *Service) Deposit(accountID int64, amount types.Money)  {
 		}
 	}
 	if account == nil {
-		return
+		return ErrAccountNotFound
 	}
 	account.Balance += amount
+
+	return nil
+}
+
+func (s *Service) Pay(accountID int64, amount types.Money, category types.PaymentCategory) (*types.Payment, error) {
+	if amount <= 0 {
+		return nil, ErrAmountMustBePositive
+	}
+
+	var account *types.Account
+	for _,acc := range s.accounts {
+		if acc.ID == accountID {
+			account = acc
+			break
+		}
+	}
+	if account == nil {
+		return nil, ErrAccountNotFound
+	}
+
+	if account.Balance < amount {
+		return nil, ErrNotEnoughBalance
+	}
+
+	account.Balance -= amount
+	paymentID := uuid.New().String()
+	payment := &types.Payment{
+		ID: paymentID,
+		AccountID: accountID,
+		Amount: amount,
+		Category: category,
+		Status: types.PaymentStatusInProgress,
+	}
+	s.payments = append(s.payments, payment)
+	return payment, nil
+}
+
+func (s *Service) FindAccountByID(accountID int64) (*types.Account, error) {
+	var account *types.Account
+	for _, accnt := range s.accounts {
+		 if accnt.ID == accountID {
+			account = accnt 
+		 }
+		 return account, nil
+	}
+	return nil, ErrAccountNotFound
 }
