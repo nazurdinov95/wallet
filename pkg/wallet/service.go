@@ -90,12 +90,10 @@ func (s *Service) Pay(accountID int64, amount types.Money, category types.Paymen
 }
 
 func (s *Service) FindAccountByID(accountID int64) (*types.Account, error) {
-	var account *types.Account
-	for _, accnt := range s.accounts {
-		 if accnt.ID == accountID {
-			account = accnt 
-		 }
-		 return account, nil
+	for _, account := range s.accounts {
+		 if account.ID == accountID {
+			return account, nil
+		 } 
 	}
 	return nil, ErrAccountNotFound
 }
